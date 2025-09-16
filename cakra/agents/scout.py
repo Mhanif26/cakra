@@ -27,6 +27,7 @@ class ScoutAgent(Agent):
     
     def __init__(self, config: Any):
         super().__init__(config)
+        self.playwright = None
         self.browser: Optional[Browser] = None
         self.context = None
         scout_config = ScoutConfig()
@@ -37,8 +38,8 @@ class ScoutAgent(Agent):
     
     async def initialize(self) -> None:
         """Initialize Playwright browser"""
-        playwright = await async_playwright().start()
-        self.browser = await playwright.chromium.launch(
+        self.playwright = await async_playwright().start()
+        self.browser = await self.playwright.chromium.launch(
             headless=True,
         )
         self.context = await self.browser.new_context(
@@ -48,11 +49,39 @@ class ScoutAgent(Agent):
         )
         self.is_initialized = True
     
-    async def analyze(self, url: str) -> Dict[str, Any]:
+    async def analyze(self, data: Any) -> Dict[str, Any]:
         """Analyze a website and gather content"""
+        # Extract URL from data parameter
+        if isinstance(data, str):
+            url = data
+        elif isinstance(data, dict) and "url" in data:
+            url = data["url"]
+        else:
+            return {
+                "error": "Invalid input: expected URL string or dict with 'url' key",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        
+        # Ensure context is initialized
+        if not self.context:
+            return {
+                "url": url,
+                "error": "Browser context not initialized",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        
+        page = None
         try:
             page = await self.context.new_page()
-            await page.set_default_timeout(self.timeout)
+            if not page:
+                return {
+                    "url": url,
+                    "error": "Failed to create new page",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+                
+            # Set timeout (synchronous method)
+            page.set_default_timeout(self.timeout)
             
             # Gather basic info and screenshot
             basic_info = await self._gather_basic_info(page, url)
@@ -62,10 +91,8 @@ class ScoutAgent(Agent):
             # Extract content and analyze page structure
             content_info = await self._extract_content(page)
             
-            # Gather outbound links
+            # Gather links and take screenshots
             link_info = await self._gather_links(page, url)
-            
-            # Take screenshots
             screenshot_info = await self._take_screenshots(page)
             
             return {
@@ -83,6 +110,13 @@ class ScoutAgent(Agent):
                 "error": str(e),
                 "timestamp": datetime.utcnow().isoformat()
             }
+        finally:
+            # Always close the page
+            if page:
+                try:
+                    await page.close()
+                except Exception:
+                    pass  # Ignore close errors
     
     async def _gather_basic_info(self, page: Page, url: str) -> Dict[str, Any]:
         """Gather basic information about the website"""
@@ -172,6 +206,8 @@ class ScoutAgent(Agent):
     async def _take_screenshots(self, page: Page) -> Dict[str, Any]:
         """Take various screenshots of the page"""
         try:
+            import base64
+            
             # Full page screenshot
             full_screenshot = await page.screenshot(
                 full_page=True,
@@ -186,10 +222,11 @@ class ScoutAgent(Agent):
                 quality=80
             )
             
+            # Convert to base64 for JSON serialization
             return {
                 "screenshots": {
-                    "full_page": full_screenshot,
-                    "viewport": viewport_screenshot
+                    "full_page": base64.b64encode(full_screenshot).decode('utf-8'),
+                    "viewport": base64.b64encode(viewport_screenshot).decode('utf-8')
                 }
             }
         except Exception as e:
@@ -202,4 +239,6 @@ class ScoutAgent(Agent):
             await self.context.close()
         if self.browser:
             await self.browser.close()
+        if self.playwright:
+            await self.playwright.stop()
         self.is_initialized = False

@@ -3,14 +3,17 @@
 Main application module for FastAPI server.
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Depends, Query, Request, Form
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 import uvicorn
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 import asyncio
 import logging
+import os
 
 from cakra.core.config import ConfigLoader
 from cakra.core.database import Database
@@ -42,6 +45,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Get the web directory path
+web_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web")
+
+# Mount static files
+app.mount("/static", StaticFiles(directory=os.path.join(web_dir, "static")), name="static")
+
+# Initialize templates
+templates = Jinja2Templates(directory=os.path.join(web_dir, "templates"))
+
 # Initialize agents
 agents = {
     "scout": ScoutAgent(config.models.scout),
@@ -59,6 +71,41 @@ async def startup_event():
     # Initialize all agents
     for agent in agents.values():
         await agent.initialize()
+
+# Web Routes
+@app.get("/", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    """Dashboard page"""
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "page_title": "Dashboard"
+    })
+
+@app.get("/scan", response_class=HTMLResponse)
+async def scan_page(request: Request):
+    """Scan page"""
+    return templates.TemplateResponse("scan.html", {
+        "request": request,
+        "page_title": "Scan URL"
+    })
+
+@app.get("/results", response_class=HTMLResponse)
+async def results_page(request: Request):
+    """Results page"""
+    return templates.TemplateResponse("results.html", {
+        "request": request,
+        "page_title": "Scan Results"
+    })
+
+@app.get("/payments", response_class=HTMLResponse)
+async def payments_page(request: Request):
+    """Payment channels page"""
+    return templates.TemplateResponse("payments.html", {
+        "request": request,
+        "page_title": "Payment Channels"
+    })
+
+# API Routes
 
 @app.get("/api/v1/health")
 async def health_check():
@@ -101,40 +148,37 @@ async def get_scan_result(url: str):
     return JSONResponse(content=result)
 
 @app.post("/api/v1/scan")
-async def scan_url(url: str, priority: str = "normal"):
+async def scan_url(url: str = Form(...), priority: str = Form("normal")):
     """Submit URL for scanning"""
     try:
         # Scan with Scout agent
-        with agents["scout"] as scout:
-            scout_result = await scout.analyze({"url": url})
+        scout_result = await agents["scout"].analyze(url)
         
         if scout_result.get("error"):
             raise HTTPException(
                 status_code=400,
                 detail=f"Scout analysis failed: {scout_result['error']}"
             )
-        
+
         # Run content and payment analysis concurrently
         analyst_result, payment_result = await asyncio.gather(
             agents["analyst"].analyze(scout_result),
             agents["investigator"].analyze(scout_result)
         )
-        
+
         # Run network mapping
         mapper_result = await agents["mapper"].analyze({
             **scout_result,
             **analyst_result
         })
-        
+
         # Generate report
         report_result = await agents["reporter"].analyze({
             "scout": scout_result,
             "analyst": analyst_result,
             "payment": payment_result,
             "mapper": mapper_result
-        })
-        
-        # Save results to database
+        })        # Save results to database
         scan_result = {
             "url": url,
             "scout_analysis": scout_result,

@@ -305,3 +305,9 @@ Environment Requirements:
 
 Tested and optimized for cloud deployment with resource-aware scheduling and efficient memory management.
 
+
+Missing Steps :
+
+python -m playwright install
+python -m playwright install-deps
+sudo apt update && sudo apt install -y tesseract-ocr

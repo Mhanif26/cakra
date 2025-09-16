@@ -64,10 +64,15 @@ class Reporter(Agent):
     async def initialize(self) -> None:
         """Initialize the reporting model"""
         try:
-            response = await ollama.agenerate(
-                model=self.report_model,
-                prompt="Test.",
-                options={"temperature": 0}
+            # Run the synchronous ollama.generate in a thread pool
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: ollama.generate(
+                    model=self.report_model,
+                    prompt="Test.",
+                    options={"temperature": 0}
+                )
             )
             if not response or not response.get("response"):
                 raise RuntimeError("Report model not responding")
@@ -113,13 +118,18 @@ class Reporter(Agent):
                 data=json.dumps(report_data, indent=2)
             )
             
-            response = await ollama.agenerate(
-                model=self.report_model,
-                prompt=prompt,
-                options={
-                    "temperature": self.temperature,
-                    "max_tokens": self.max_tokens
-                }
+            # Run the synchronous ollama.generate in a thread pool
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: ollama.generate(
+                    model=self.report_model,
+                    prompt=prompt,
+                    options={
+                        "temperature": self.temperature,
+                        "max_tokens": self.max_tokens
+                    }
+                )
             )
             
             return response.get("response", "Error generating report")
@@ -145,12 +155,17 @@ class Reporter(Agent):
                 evidence=json.dumps(evidence_data, indent=2)
             )
             
-            response = await ollama.agenerate(
-                model=self.report_model,
-                prompt=prompt,
-                options={
-                    "temperature": self.temperature
-                }
+            # Run the synchronous ollama.generate in a thread pool
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: ollama.generate(
+                    model=self.report_model,
+                    prompt=prompt,
+                    options={
+                        "temperature": self.temperature
+                    }
+                )
             )
             
             # Parse the response into structured format

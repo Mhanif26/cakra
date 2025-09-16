@@ -43,7 +43,6 @@ class PaymentInvestigator(Agent):
         """Initialize Tesseract OCR if needed"""
         try:
             # Test Tesseract installation
-            Image.open(io.BytesIO(b"")).close()  # Just to test PIL
             pytesseract.get_tesseract_version()
             self.is_initialized = True
         except Exception as e:

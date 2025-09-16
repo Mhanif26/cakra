@@ -149,7 +149,7 @@ class ContentAnalyst(BatchAgent):
             logging.error(f"Text analysis error: {str(e)}")
             return {"error": str(e)}
     
-    async def _analyze_screenshots(self, screenshots: Dict[str, bytes]) -> Dict[str, Any]:
+    async def _analyze_screenshots(self, screenshots: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze screenshots using the vision model"""
         if not screenshots:
             return {"error": "No screenshots provided"}
@@ -160,8 +160,17 @@ class ContentAnalyst(BatchAgent):
             if not screenshot:
                 return {"error": "No valid screenshots found"}
             
+            # Handle both bytes and base64 string formats
+            if isinstance(screenshot, str):
+                # It's a base64 string, decode it
+                import base64
+                screenshot_bytes = base64.b64decode(screenshot)
+            else:
+                # It's already bytes
+                screenshot_bytes = screenshot
+            
             # Prepare image for vision model
-            image = Image.open(io.BytesIO(screenshot))
+            image = Image.open(io.BytesIO(screenshot_bytes))
             # Resize if needed to meet model requirements
             image.thumbnail((1024, 1024))
             

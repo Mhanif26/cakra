@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import (
     create_async_engine, AsyncSession, async_sessionmaker
 )
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, func
 
 from .models import Base, ScanResult, PaymentChannel, OperatorCluster, FeedbackEntry
 from .config import DatabaseConfig
@@ -121,3 +121,101 @@ class Database:
                 .order_by(FeedbackEntry.created_at.desc())
             )
             return result.scalars().all()
+    
+    async def get_scan_results(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        min_illegal_rate: int = 0,
+        max_illegal_rate: int = 100,
+        classification: Optional[str] = None,
+        days_back: int = 30
+    ) -> List[Dict[str, Any]]:
+        """Get scan results with filtering and pagination"""
+        cutoff = datetime.utcnow() - timedelta(days=days_back)
+        
+        async with self.async_session() as session:
+            query = select(ScanResult).where(ScanResult.timestamp >= cutoff)
+            
+            if classification:
+                # This would need to be adapted based on your actual data structure
+                pass
+            
+            query = query.offset(offset).limit(limit).order_by(ScanResult.timestamp.desc())
+            result = await session.execute(query)
+            
+            # Convert to dict format for JSON serialization
+            scan_results = result.scalars().all()
+            return [self._scan_result_to_dict(sr) for sr in scan_results]
+    
+    async def get_payment_channels(
+        self,
+        limit: int = 500,
+        channel_type: Optional[str] = None,
+        min_risk_score: int = 0
+    ) -> List[Dict[str, Any]]:
+        """Get payment channels with filtering"""
+        async with self.async_session() as session:
+            query = select(PaymentChannel).where(PaymentChannel.risk_score >= min_risk_score)
+            
+            if channel_type:
+                query = query.where(PaymentChannel.channel_type == channel_type)
+            
+            query = query.limit(limit).order_by(PaymentChannel.risk_score.desc())
+            result = await session.execute(query)
+            
+            # Convert to dict format for JSON serialization
+            channels = result.scalars().all()
+            return [self._payment_channel_to_dict(pc) for pc in channels]
+    
+    async def get_statistics(self) -> Dict[str, Any]:
+        """Get system statistics"""
+        async with self.async_session() as session:
+            # Count total scans
+            total_scans_result = await session.execute(
+                select(func.count(ScanResult.id))
+            )
+            total_scans = total_scans_result.scalar() or 0
+            
+            # Count payment channels
+            payment_channels_result = await session.execute(
+                select(func.count(PaymentChannel.id))
+            )
+            payment_channels = payment_channels_result.scalar() or 0
+            
+            # For now, return mock statistics since we don't have data
+            return {
+                "total_scans": total_scans,
+                "threats_detected": 0,  # Would need to calculate based on risk scores
+                "payment_channels": payment_channels,
+                "safe_sites": 0,  # Would need to calculate based on classifications
+                "last_updated": datetime.utcnow().isoformat()
+            }
+    
+    def _scan_result_to_dict(self, scan_result: ScanResult) -> Dict[str, Any]:
+        """Convert ScanResult object to dictionary"""
+        return {
+            "id": scan_result.id,
+            "url": scan_result.url,
+            "timestamp": scan_result.timestamp.isoformat() if scan_result.timestamp else None,
+            "risk_score": getattr(scan_result, 'risk_score', 0),
+            "content_analysis": getattr(scan_result, 'content_analysis', {}),
+            "payment_analysis": getattr(scan_result, 'payment_analysis', {}),
+            "network_analysis": getattr(scan_result, 'network_analysis', {}),
+            "report": getattr(scan_result, 'report', {})
+        }
+    
+    def _payment_channel_to_dict(self, channel: PaymentChannel) -> Dict[str, Any]:
+        """Convert PaymentChannel object to dictionary"""
+        return {
+            "id": channel.id,
+            "identifier": channel.identifier,
+            "type": getattr(channel, 'channel_type', 'unknown'),
+            "provider": getattr(channel, 'provider', None),
+            "risk_score": channel.risk_score,
+            "associated_urls": getattr(channel, 'associated_urls', []),
+            "first_detected": channel.first_detected.isoformat() if hasattr(channel, 'first_detected') and channel.first_detected else datetime.utcnow().isoformat(),
+            "last_updated": getattr(channel, 'last_updated', datetime.utcnow()).isoformat() if hasattr(channel, 'last_updated') else datetime.utcnow().isoformat(),
+            "detection_count": getattr(channel, 'detection_count', 1),
+            "confidence": getattr(channel, 'confidence', 85)
+        }
