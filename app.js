@@ -586,3 +586,35 @@ function initCategoryChart() {
 // APP INITIALIZATION
 // =========================================
 document.addEventListener('DOMContentLoaded', initRouter);
+
+// =========================================
+// API DROPDOWN HANDLER
+// =========================================
+function toggleApiDropdown() {
+    const menu = document.getElementById('api-dropdown-menu');
+    const btn = document.getElementById('api-toggle-btn');
+    
+    const isHidden = menu.classList.contains('hidden');
+    
+    if (isHidden) {
+        menu.classList.remove('hidden');
+        btn.classList.add('bg-white/10'); // Highlight button when active
+    } else {
+        menu.classList.add('hidden');
+        btn.classList.remove('bg-white/10');
+    }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+    const container = document.getElementById('api-dropdown-container');
+    const menu = document.getElementById('api-dropdown-menu');
+    const btn = document.getElementById('api-toggle-btn');
+
+    if (!container.contains(e.target)) {
+        if (!menu.classList.contains('hidden')) {
+             menu.classList.add('hidden');
+             btn.classList.remove('bg-white/10');
+        }
+    }
+});

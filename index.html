@@ -25,9 +25,39 @@
                 </nav>
             </div>
             <div class="flex items-center space-x-4">
-                <div class="flex items-center space-x-2 px-3 py-2 rounded-md border border-white/10 text-sm glass-effect">
-                    <span class="text-green-400 flex items-center"><i data-lucide="wifi" class="h-4 w-4 mr-2"></i> API Connected</span>
+                <div class="relative" id="api-dropdown-container">
+    <button onclick="toggleApiDropdown()" id="api-toggle-btn" class="flex items-center space-x-2 px-3 py-2 rounded-md border border-white/10 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 transition-colors glass-effect">
+        <span>API Info</span>
+        <i data-lucide="wifi" class="h-4 w-4 text-green-400"></i>
+    </button>
+
+    <div id="api-dropdown-menu" class="hidden absolute right-0 mt-2 w-72 p-4 rounded-xl border border-white/10 shadow-2xl glass-effect z-50 animate-[fadeIn_0.2s_ease-out]">
+        <h3 class="text-sm font-semibold text-white mb-3 pb-2 border-b border-white/10">API Information</h3>
+        <div class="space-y-3 text-sm">
+            <div class="flex items-start space-x-3">
+                <i data-lucide="server" class="h-4 w-4 text-gray-400 mt-0.5"></i>
+                <div>
+                    <p class="text-gray-400 text-xs">Endpoint</p>
+                    <p class="text-purple-300 font-mono text-xs">https://api.cakra.local</p>
                 </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <i data-lucide="git-branch" class="h-4 w-4 text-gray-400"></i>
+                <div class="flex items-center space-x-2">
+                    <span class="text-gray-400">Version:</span>
+                    <span class="text-white font-medium">v1.2.0</span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <i data-lucide="wifi" class="h-4 w-4 text-green-400"></i>
+                <div class="flex items-center space-x-2">
+                     <span class="text-gray-400">Status:</span>
+                     <span class="text-green-400 font-medium">Connected</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
             </div>
         </div>
     </header>
